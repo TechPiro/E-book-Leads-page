@@ -1007,21 +1007,15 @@ app.get("/api/asset/profile", async (_req, res) => {
   return res.send(buffer);
 });
 
-// TEMP diagnostic endpoint — confirms the function loaded and reports DB state.
+// Lightweight health check for uptime monitoring (no internal details).
 app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    dbInitialized: !!db,
-    node: process.version,
-    vercel: !!process.env.VERCEL,
-  });
+  res.json({ ok: true });
 });
 
-// TEMP error surface — return the real error instead of Vercel's generic 500 page,
-// so request-time failures are visible while debugging the deployment.
+// Generic error handler — log the details server-side, return a safe message.
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Express error:", err);
-  res.status(500).json({ success: false, error: String(err?.stack || err?.message || err) });
+  res.status(500).json({ success: false, error: "An unexpected server error occurred." });
 });
 
 // This module only defines the Express app and exports it. Serving the SPA and
