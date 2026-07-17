@@ -565,7 +565,7 @@ app.post("/api/leads", async (req, res) => {
                       <tr>
                         <td align="center">
                           <a href="${ebookDownloadUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                            <img src="cid:book_cover" alt="The First Step to Becoming Book Cover" width="200" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: block;" />
+                            <img src="cid:book_cover" alt="The First Step to Becoming Book Cover" width="220" style="max-width: 100%; height: auto; display: block;" />
                           </a>
                         </td>
                       </tr>
@@ -643,7 +643,7 @@ app.post("/api/leads", async (req, res) => {
           subject: `Your Free Ebook Is Here 🎉 - ${COPY_CONFIG.ebookTitle}`,
           html: emailHtml,
           attachments: [
-            ...(bookCoverBuffer ? [{ filename: "book_cover.jpg", content: bookCoverBuffer, cid: "book_cover", contentDisposition: "inline" as const }] : []),
+            ...(bookCoverBuffer ? [{ filename: "book_cover.png", content: bookCoverBuffer, cid: "book_cover", contentDisposition: "inline" as const }] : []),
             ...(profilePictureBuffer ? [{ filename: "profile_picture.jpg", content: profilePictureBuffer, cid: "author_profile", contentDisposition: "inline" as const }] : []),
             ...(ebookBuffer ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }] : []),
           ]
@@ -1010,8 +1010,11 @@ async function getProfilePictureBuffer(): Promise<Buffer | null> {
 }
 
 function getBookCoverBuffer(): Buffer | null {
-  const bundled = path.join(process.cwd(), "public", "book_cover.jpg");
-  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
+  // Prefer the transparent PNG so the cover blends into the email with no box.
+  const png = path.join(process.cwd(), "public", "book_cover.png");
+  if (fs.existsSync(png)) return fs.readFileSync(png);
+  const jpg = path.join(process.cwd(), "public", "book_cover.jpg");
+  return fs.existsSync(jpg) ? fs.readFileSync(jpg) : null;
 }
 
 app.get("/api/asset/ebook", async (_req, res) => {

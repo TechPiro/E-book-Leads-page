@@ -422,9 +422,9 @@ export default function App() {
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 w-48 h-[290px] bg-slate-900/10 rounded-full blur-2xl filter group-hover:scale-105 transition-all duration-500 -z-10" />
                 
                 <img 
-                  src="/book_cover.jpg" 
+                  src="/book_cover.png" 
                   alt="The First Step to Becoming Book Cover" 
-                  className="w-60 h-auto object-contain mx-auto mix-blend-multiply transition-all duration-300 group-hover:scale-[1.03] select-none"
+                  className="w-60 h-auto object-contain mx-auto transition-all duration-300 group-hover:scale-[1.03] select-none"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -761,9 +761,9 @@ export default function App() {
               
               {/* Ebook Book Mockup Cover Card */}
               <img 
-                src="/book_cover.jpg" 
+                src="/book_cover.png" 
                 alt="The First Step to Becoming Book Cover" 
-                className="relative w-72 h-auto object-contain mix-blend-multiply transition-transform group-hover:scale-[1.03] duration-500 select-none"
+                className="relative w-72 h-auto object-contain transition-transform group-hover:scale-[1.03] duration-500 select-none"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -954,9 +954,9 @@ export default function App() {
                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-slate-900/10 rounded-full blur-md -z-10" />
                     
                     <img 
-                      src="/book_cover.jpg" 
+                      src="/book_cover.png" 
                       alt="The First Step to Becoming Book Cover" 
-                      className="w-36 h-auto object-contain relative mix-blend-multiply transition-transform group-hover:scale-[1.02] duration-300 select-none"
+                      className="w-36 h-auto object-contain relative transition-transform group-hover:scale-[1.02] duration-300 select-none"
                       referrerPolicy="no-referrer"
                     />
                   </div>
