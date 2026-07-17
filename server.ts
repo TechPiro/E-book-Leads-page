@@ -371,7 +371,7 @@ try {
         emailSentError: "RESEND_API_KEY environment variable is not configured."
       }
     ];
-    fs.writeFileSync(LEADS_FILE_PATH, JSON.stringify(memoryLeads, null, 2));
+    safeWriteFileSync(LEADS_FILE_PATH, JSON.stringify(memoryLeads, null, 2));
     console.log("Initialized default mock leads and saved to local disk backup.");
   }
 } catch (err) {
@@ -732,7 +732,7 @@ function upsertMemoryLead(leadData: any) {
     memoryLeads.push({ id: `mem-${Date.now()}`, ...leadData });
   }
   try {
-    fs.writeFileSync(LEADS_FILE_PATH, JSON.stringify(memoryLeads, null, 2));
+    safeWriteFileSync(LEADS_FILE_PATH, JSON.stringify(memoryLeads, null, 2));
     console.log("Successfully saved updated lead backup to disk.");
   } catch (err) {
     console.error("Failed to write memory leads backup to disk:", err);
@@ -834,8 +834,8 @@ app.post("/api/admin/profile", requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: "Please enter a valid author name (at least 2 characters)." });
     }
 
-    // 1. Save local config file
-    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify({ authorName: authorName.trim() }, null, 2));
+    // 1. Save local config file (no-op on read-only serverless filesystems)
+    safeWriteFileSync(SETTINGS_FILE_PATH, JSON.stringify({ authorName: authorName.trim() }, null, 2));
 
     // 2. Save profile picture to disk if base64 is provided
     if (profilePictureBase64) {
@@ -883,7 +883,7 @@ app.post("/api/admin/ebook", requireAdmin, async (req, res) => {
     const base64Data = ebookBase64.replace(/^data:application\/pdf;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
     const ebookPath = path.join(process.cwd(), "public", "ebook.pdf");
-    fs.writeFileSync(ebookPath, buffer);
+    safeWriteFileSync(ebookPath, buffer);
     console.log("Updated local public/ebook.pdf via admin upload");
 
     // 2. Save to Firestore if database is initialized
