@@ -416,8 +416,9 @@ app.post("/api/leads", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Duplicate check: if this email already claimed the e-book, don't re-send —
-    // just tell them to check their inbox / spam folder.
+    // Duplicate check: has this email already claimed the e-book? If so we STILL
+    // re-send it (so they can grab their copy again), but we do NOT save a second
+    // lead — the admin / leads list keeps just one entry per email.
     let alreadyClaimed = false;
     if (db) {
       try {
@@ -428,14 +429,6 @@ app.post("/api/leads", async (req, res) => {
       }
     } else {
       alreadyClaimed = memoryLeads.some((l: any) => (l.email || "").toLowerCase() === normalizedEmail);
-    }
-
-    if (alreadyClaimed) {
-      return res.json({
-        success: true,
-        alreadyExists: true,
-        message: "You've already claimed the e-book with this email. Please check your inbox (and your spam folder) for the download link.",
-      });
     }
 
     // Load dynamic profile settings
@@ -667,44 +660,40 @@ app.post("/api/leads", async (req, res) => {
       console.warn(`Gmail SMTP email NOT triggered: ${emailSentError}`);
     }
 
-    const leadData = {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      createdAt: Date.now(),
-      emailSent: emailSentStatus,
-      ...(emailSentError ? { emailSentError } : {})
-    };
+    // Save the lead ONLY when it's new. For a repeat email we already re-sent the
+    // e-book above, but we intentionally skip saving so the leads list stays free of
+    // duplicates.
+    if (!alreadyClaimed) {
+      const leadData = {
+        name: name.trim(),
+        email: normalizedEmail,
+        phone: phone.trim(),
+        createdAt: Date.now(),
+        emailSent: emailSentStatus,
+        ...(emailSentError ? { emailSentError } : {})
+      };
 
-    // Save to Firestore Database or Memory fallback
-    if (db) {
-      try {
-        const querySnapshot = await db.collection("leads").where("email", "==", leadData.email).get();
-
-        if (!querySnapshot.empty) {
-          // Update existing lead (prevent duplicates)
-          const docId = querySnapshot.docs[0].id;
-          const docRef = querySnapshot.docs[0].ref;
-          await docRef.update(leadData);
-          console.log(`Updated existing lead in Firestore. ID: ${docId}, Email: ${leadData.email}`);
-        } else {
-          // Add brand new lead
+      if (db) {
+        try {
           const newDoc = await db.collection("leads").add(leadData);
           console.log(`Saved new lead in Firestore. ID: ${newDoc.id}, Email: ${leadData.email}`);
+        } catch (dbErr) {
+          logDbError("Failed to save lead in Firestore, falling back to local memory", dbErr);
+          upsertMemoryLead(leadData);
         }
-      } catch (dbErr) {
-        logDbError("Failed to save lead in Firestore, falling back to local memory", dbErr);
+      } else {
+        // Memory fallback if Firebase not initialized
         upsertMemoryLead(leadData);
       }
-    } else {
-      // Memory fallback if Firebase not initialized
-      upsertMemoryLead(leadData);
     }
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       emailSent: emailSentStatus,
-      message: "Lead captured successfully!"
+      alreadyExists: alreadyClaimed,
+      message: alreadyClaimed
+        ? "Looks like you've claimed this before — we've re-sent the e-book to your email. Please check your inbox (and spam folder)."
+        : "Lead captured successfully!",
     });
 
   } catch (err: any) {

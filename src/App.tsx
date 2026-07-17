@@ -610,11 +610,11 @@ export default function App() {
 
                     <div className="space-y-2">
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        {alreadyClaimed ? "You've Already Claimed It" : "Check Your Inbox!"}
+                        {alreadyClaimed ? "Check Your Inbox Again!" : "Check Your Inbox!"}
                       </h3>
                       <p className="text-sm text-slate-500 leading-relaxed">
                         {alreadyClaimed ? (
-                          <>You've already received <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> at this email. Please check your inbox — and your spam folder — for the download link.</>
+                          <>You've requested this before, so we've re-sent <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> to your email. Please check your inbox — and your spam folder.</>
                         ) : (
                           <>Your playbook has been successfully registered. We are delivering <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> to your email address right now.</>
                         )}
@@ -624,7 +624,7 @@ export default function App() {
                     <div className="px-2">
                       <div className="w-full flex items-center justify-center space-x-2 py-3.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-bold text-center">
                         <Mail className="h-4 w-4 shrink-0" />
-                        <span>{alreadyClaimed ? "Check your inbox or spam for the e-book" : "Check your email to download the e-book"}</span>
+                        <span>{alreadyClaimed ? "We've re-sent it — check your inbox or spam" : "Check your email to download the e-book"}</span>
                       </div>
                     </div>
 
@@ -1130,11 +1130,11 @@ export default function App() {
 
                       <div className="space-y-2">
                         <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                          {modalAlreadyClaimed ? "You've Already Claimed It" : "Check Your Inbox!"}
+                          {modalAlreadyClaimed ? "Check Your Inbox Again!" : "Check Your Inbox!"}
                         </h3>
                         <p className="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
                           {modalAlreadyClaimed ? (
-                            <>You've already received <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> at this email. Please check your inbox — and your spam folder — for the download link.</>
+                            <>You've requested this before, so we've re-sent <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> to your email. Please check your inbox — and your spam folder.</>
                           ) : (
                             <>We have registered your request. <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> is being delivered to your email address right now.</>
                           )}
@@ -1144,7 +1144,7 @@ export default function App() {
                       <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto w-full">
                         <div className="w-full inline-flex items-center justify-center space-x-2 py-2.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold rounded-xl text-xs text-center">
                           <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span>{modalAlreadyClaimed ? "Check your inbox or spam for the e-book" : "Check your email to download the e-book"}</span>
+                          <span>{modalAlreadyClaimed ? "We've re-sent it — check your inbox or spam" : "Check your email to download the e-book"}</span>
                         </div>
                         <button
                           onClick={() => setShowExitIntent(false)}
