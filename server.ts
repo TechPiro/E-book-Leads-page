@@ -443,13 +443,10 @@ app.post("/api/leads", async (req, res) => {
 
     if (smtpUser && smtpPass) {
       try {
-        // Load email assets as buffers (Firestore-first, bundled fallback) so this
-        // works on read-only serverless filesystems.
-        const [ebookBuffer, profilePictureBuffer] = await Promise.all([
-          getEbookBuffer(),
-          getProfilePictureBuffer(),
-        ]);
-        const bookCoverBuffer = getBookCoverBuffer();
+        // Only the e-book PDF is attached. The profile photo and book cover are
+        // intentionally NOT embedded/attached — they showed up as attachments in the
+        // inbox and looked unprofessional.
+        const ebookBuffer = await getEbookBuffer();
 
         const transporter = nodemailer.createTransport({
           host: smtpHost,
@@ -501,18 +498,15 @@ app.post("/api/leads", async (req, res) => {
               <!-- Author Profile Card -->
               <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; text-align: left;">
                 <tr>
-                  <td style="vertical-align: middle; width: 52px; padding-right: 12px;">
-                    <img src="cid:author_profile" alt="${currentAuthorName}" width="52" height="52" style="border-radius: 50%; display: block; object-fit: cover; border: 2px solid #e2e8f0;" />
-                  </td>
                   <td style="vertical-align: middle;">
                     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; font-weight: 700; margin-bottom: 2px;">AUTHOR &amp; GUIDE</div>
                     <table border="0" cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="vertical-align: middle; padding-right: 5px;">
-                          <img src="https://img.icons8.com/color/48/verified-badge.png" alt="Verified" width="17" height="17" style="display: block; vertical-align: middle;" />
+                          <span style="font-size: 16px; font-weight: 700; color: #2c3e3a; font-family: 'Georgia', serif; line-height: 1;">${currentAuthorName}</span>
                         </td>
                         <td style="vertical-align: middle;">
-                          <span style="font-size: 16px; font-weight: 700; color: #2c3e3a; font-family: 'Georgia', serif; line-height: 1;">${currentAuthorName}</span>
+                          <img src="https://img.icons8.com/color/48/verified-badge.png" alt="Verified" width="17" height="17" style="display: block; vertical-align: middle;" />
                         </td>
                       </tr>
                     </table>
@@ -523,27 +517,16 @@ app.post("/api/leads", async (req, res) => {
               <h2 style="font-family: 'Georgia', serif; font-size: 24px; font-weight: 700; color: #2c3e3a; margin-top: 0; margin-bottom: 16px; line-height: 1.3;">Hello, ${name.trim()}!</h2>
 
               <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 24px;">
-                Thank you for taking this crucial first step on your journey. Please find your free guidebook below. You can tap on the book cover or click the download button below to access your copy instantly:
+                Thank you for taking this crucial first step on your journey. Your free guidebook is ready — click the download button below to access your copy instantly:
               </p>
 
               <!-- Ebook Showcase Box with cover and download button -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; margin-bottom: 32px; overflow: hidden;">
                 <tr>
                   <td style="padding: 32px; text-align: center;">
-                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 20px;">EXCLUSIVE PLAYBOOK DELIVERY</div>
-                    
-                    <!-- Clickable Ebook Cover Image -->
-                    <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 24px auto;">
-                      <tr>
-                        <td align="center">
-                          <a href="${ebookDownloadUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                            <img src="cid:book_cover" alt="The First Step to Becoming Book Cover" width="220" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: block;" />
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-                    
-                    <p style="font-size: 15px; color: #475569; margin-top: 0; margin-bottom: 24px; font-style: italic; max-width: 440px; margin-left: auto; margin-right: auto; line-height: 1.5; font-family: 'Georgia', serif;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 16px;">EXCLUSIVE PLAYBOOK DELIVERY</div>
+
+                    <p style="font-size: 16px; color: #2c3e3a; margin-top: 0; margin-bottom: 24px; font-style: italic; max-width: 440px; margin-left: auto; margin-right: auto; line-height: 1.5; font-family: 'Georgia', serif; font-weight: 700;">
                       "The First Step to Becoming: Why You Feel Lost (And Where to Begin)"
                     </p>
 
@@ -614,11 +597,9 @@ app.post("/api/leads", async (req, res) => {
           to: email.trim(),
           subject: `Your Free Ebook Is Here 🎉 - ${COPY_CONFIG.ebookTitle}`,
           html: emailHtml,
-          attachments: [
-            ...(bookCoverBuffer ? [{ filename: "book_cover.jpg", content: bookCoverBuffer, cid: "book_cover" }] : []),
-            ...(profilePictureBuffer ? [{ filename: "profile_picture.jpg", content: profilePictureBuffer, cid: "author_profile" }] : []),
-            ...(ebookBuffer ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }] : []),
-          ]
+          attachments: ebookBuffer
+            ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }]
+            : []
         });
 
         emailSentStatus = true;
