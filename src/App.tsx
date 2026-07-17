@@ -84,6 +84,7 @@ export default function App() {
   const [errors, setErrors] = useState({ name: "", email: "", phone: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [alreadyClaimed, setAlreadyClaimed] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const [emailSuggestion, setEmailSuggestion] = useState("");
@@ -94,6 +95,7 @@ export default function App() {
   const [modalErrors, setModalErrors] = useState({ name: "", email: "", phone: "" });
   const [modalIsSubmitting, setModalIsSubmitting] = useState(false);
   const [modalSubmitSuccess, setModalSubmitSuccess] = useState(false);
+  const [modalAlreadyClaimed, setModalAlreadyClaimed] = useState(false);
   const [modalSubmitError, setModalSubmitError] = useState("");
 
   const [modalEmailSuggestion, setModalEmailSuggestion] = useState("");
@@ -189,11 +191,12 @@ export default function App() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        setAlreadyClaimed(!!data.alreadyExists);
         setSubmitSuccess(true);
         // Clear form
         setFormData({ name: "", email: "", phone: "" });
         setEmailSuggestion("");
-        triggerConfetti();
+        if (!data.alreadyExists) triggerConfetti();
       } else {
         setSubmitError(data.error || "Form submission failed. Please try again.");
       }
@@ -265,11 +268,13 @@ export default function App() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        setModalAlreadyClaimed(!!data.alreadyExists);
+        setAlreadyClaimed(!!data.alreadyExists);
         setModalSubmitSuccess(true);
         setModalFormData({ name: "", email: "", phone: "" });
         // Set main landing page success state as well
         setSubmitSuccess(true);
-        triggerConfetti();
+        if (!data.alreadyExists) triggerConfetti();
       } else {
         setModalSubmitError(data.error || "Form submission failed. Please try again.");
       }
@@ -605,17 +610,21 @@ export default function App() {
 
                     <div className="space-y-2">
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        Check Your Inbox!
+                        {alreadyClaimed ? "You've Already Claimed It" : "Check Your Inbox!"}
                       </h3>
                       <p className="text-sm text-slate-500 leading-relaxed">
-                        Your playbook has been successfully registered. We are delivering <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> to your email address right now.
+                        {alreadyClaimed ? (
+                          <>You've already received <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> at this email. Please check your inbox — and your spam folder — for the download link.</>
+                        ) : (
+                          <>Your playbook has been successfully registered. We are delivering <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> to your email address right now.</>
+                        )}
                       </p>
                     </div>
 
                     <div className="px-2">
                       <div className="w-full flex items-center justify-center space-x-2 py-3.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-bold text-center">
                         <Mail className="h-4 w-4 shrink-0" />
-                        <span>Check your email to download the e-book</span>
+                        <span>{alreadyClaimed ? "Check your inbox or spam for the e-book" : "Check your email to download the e-book"}</span>
                       </div>
                     </div>
 
@@ -1121,17 +1130,21 @@ export default function App() {
 
                       <div className="space-y-2">
                         <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                          Check Your Inbox!
+                          {modalAlreadyClaimed ? "You've Already Claimed It" : "Check Your Inbox!"}
                         </h3>
                         <p className="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-                          We have registered your request. <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> is being delivered to your email address right now.
+                          {modalAlreadyClaimed ? (
+                            <>You've already received <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> at this email. Please check your inbox — and your spam folder — for the download link.</>
+                          ) : (
+                            <>We have registered your request. <strong className="text-slate-900 font-bold">{COPY_CONFIG.ebookTitle}</strong> is being delivered to your email address right now.</>
+                          )}
                         </p>
                       </div>
 
                       <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto w-full">
                         <div className="w-full inline-flex items-center justify-center space-x-2 py-2.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold rounded-xl text-xs text-center">
                           <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span>Check your email to download the e-book</span>
+                          <span>{modalAlreadyClaimed ? "Check your inbox or spam for the e-book" : "Check your email to download the e-book"}</span>
                         </div>
                         <button
                           onClick={() => setShowExitIntent(false)}

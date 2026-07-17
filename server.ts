@@ -414,6 +414,30 @@ app.post("/api/leads", async (req, res) => {
       return res.status(400).json({ success: false, error: "Please enter a valid phone number." });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Duplicate check: if this email already claimed the e-book, don't re-send —
+    // just tell them to check their inbox / spam folder.
+    let alreadyClaimed = false;
+    if (db) {
+      try {
+        const dupSnap = await db.collection("leads").where("email", "==", normalizedEmail).get();
+        alreadyClaimed = !dupSnap.empty;
+      } catch (dupErr) {
+        logDbError("Duplicate-email check failed", dupErr);
+      }
+    } else {
+      alreadyClaimed = memoryLeads.some((l: any) => (l.email || "").toLowerCase() === normalizedEmail);
+    }
+
+    if (alreadyClaimed) {
+      return res.json({
+        success: true,
+        alreadyExists: true,
+        message: "You've already claimed the e-book with this email. Please check your inbox (and your spam folder) for the download link.",
+      });
+    }
+
     // Load dynamic profile settings
     const profileSettings = await getProfileSettings();
     const currentAuthorName = profileSettings.authorName;
@@ -433,6 +457,10 @@ app.post("/api/leads", async (req, res) => {
 
     // Point at the dynamic asset route so the emailed link always serves the latest ebook.
     const ebookDownloadUrl = `${finalBaseUrl}/api/asset/ebook`;
+    // Images are referenced by URL (not attached) so they render inline in the body
+    // without appearing as downloadable attachments in the inbox.
+    const profilePhotoUrl = `${finalBaseUrl}/api/asset/profile`;
+    const bookCoverUrl = `${finalBaseUrl}/book_cover.jpg`;
 
     // Set up Nodemailer transporter for Gmail SMTP
     let emailSentStatus = false;
@@ -498,6 +526,9 @@ app.post("/api/leads", async (req, res) => {
               <!-- Author Profile Card -->
               <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; text-align: left;">
                 <tr>
+                  <td style="vertical-align: middle; width: 52px; padding-right: 12px;">
+                    <img src="${profilePhotoUrl}" alt="${currentAuthorName}" width="52" height="52" style="border-radius: 50%; display: block; object-fit: cover; border: 2px solid #e2e8f0;" />
+                  </td>
                   <td style="vertical-align: middle;">
                     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; font-weight: 700; margin-bottom: 2px;">AUTHOR &amp; GUIDE</div>
                     <table border="0" cellpadding="0" cellspacing="0">
@@ -517,16 +548,27 @@ app.post("/api/leads", async (req, res) => {
               <h2 style="font-family: 'Georgia', serif; font-size: 24px; font-weight: 700; color: #2c3e3a; margin-top: 0; margin-bottom: 16px; line-height: 1.3;">Hello, ${name.trim()}!</h2>
 
               <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 24px;">
-                Thank you for taking this crucial first step on your journey. Your free guidebook is ready — click the download button below to access your copy instantly:
+                Thank you for taking this crucial first step on your journey. Please find your free guidebook below — tap the book cover or the download button to access your copy instantly:
               </p>
 
               <!-- Ebook Showcase Box with cover and download button -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; margin-bottom: 32px; overflow: hidden;">
                 <tr>
                   <td style="padding: 32px; text-align: center;">
-                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 16px;">EXCLUSIVE PLAYBOOK DELIVERY</div>
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 20px;">EXCLUSIVE PLAYBOOK DELIVERY</div>
 
-                    <p style="font-size: 16px; color: #2c3e3a; margin-top: 0; margin-bottom: 24px; font-style: italic; max-width: 440px; margin-left: auto; margin-right: auto; line-height: 1.5; font-family: 'Georgia', serif; font-weight: 700;">
+                    <!-- Clickable Ebook Cover (hosted image, NOT an attachment) -->
+                    <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 24px auto;">
+                      <tr>
+                        <td align="center">
+                          <a href="${ebookDownloadUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
+                            <img src="${bookCoverUrl}" alt="The First Step to Becoming Book Cover" width="200" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: block;" />
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="font-size: 15px; color: #475569; margin-top: 0; margin-bottom: 24px; font-style: italic; max-width: 440px; margin-left: auto; margin-right: auto; line-height: 1.5; font-family: 'Georgia', serif;">
                       "The First Step to Becoming: Why You Feel Lost (And Where to Begin)"
                     </p>
 
@@ -963,11 +1005,6 @@ async function getProfilePictureBuffer(): Promise<Buffer | null> {
     }
   }
   const bundled = path.join(process.cwd(), "public", "profile_picture.jpg");
-  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
-}
-
-function getBookCoverBuffer(): Buffer | null {
-  const bundled = path.join(process.cwd(), "public", "book_cover.jpg");
   return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
 }
 
