@@ -494,17 +494,27 @@ app.post("/api/leads", async (req, res) => {
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Your Free Ebook Is Here 🎉</title>
+  <style>
+    @media only screen and (max-width: 600px) {
+      .email-wrap { padding: 16px 8px !important; }
+      .email-card { width: 100% !important; border-radius: 12px !important; }
+      .email-header { padding: 28px 18px !important; }
+      .email-body { padding: 26px 18px !important; }
+      .email-showcase { padding: 22px 16px !important; }
+      .email-footer { padding: 20px 18px !important; }
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 20px;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc;">
     <tr>
-      <td align="center">
+      <td align="center" class="email-wrap" style="padding: 40px 16px;">
         <!-- Card Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);">
-          
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);">
+
           <!-- Brand Header Banner -->
           <tr>
-            <td style="background-color: #2c3e3a; padding: 32px; text-align: center;">
+            <td class="email-header" style="background-color: #2c3e3a; padding: 32px; text-align: center;">
               <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                 <tr>
                   <!-- Footsteps representation -->
@@ -522,7 +532,7 @@ app.post("/api/leads", async (req, res) => {
 
           <!-- Main Content Body -->
           <tr>
-            <td style="padding: 40px 32px; color: #1e293b;">
+            <td class="email-body" style="padding: 36px 30px; color: #1e293b;">
               <!-- Author Profile Card -->
               <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; text-align: left;">
                 <tr>
@@ -554,7 +564,7 @@ app.post("/api/leads", async (req, res) => {
               <!-- Ebook Showcase Box with cover and download button -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; margin-bottom: 32px; overflow: hidden;">
                 <tr>
-                  <td style="padding: 32px; text-align: center;">
+                  <td class="email-showcase" style="padding: 30px; text-align: center;">
                     <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 20px;">EXCLUSIVE PLAYBOOK DELIVERY</div>
 
                     <!-- Clickable Ebook Cover (hosted image, NOT an attachment) -->
@@ -576,7 +586,7 @@ app.post("/api/leads", async (req, res) => {
                     <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                       <tr>
                         <td align="center" style="background-color: #2c3e3a; border-radius: 8px; box-shadow: 0 4px 12px rgba(44, 62, 58, 0.25);">
-                          <a href="${ebookDownloadUrl}" target="_blank" style="display: inline-block; padding: 16px 36px; background-color: #2c3e3a; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: 8px; text-decoration: none; border: 1px solid #2c3e3a; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+                          <a href="${ebookDownloadUrl}" target="_blank" style="display: inline-block; padding: 12px 26px; background-color: #2c3e3a; color: #ffffff; font-weight: 700; font-size: 14px; border-radius: 8px; text-decoration: none; border: 1px solid #2c3e3a; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
                             📥 Download E-Book For Free
                           </a>
                         </td>
@@ -620,7 +630,7 @@ app.post("/api/leads", async (req, res) => {
 
           <!-- Footer Legal & Opt Out -->
           <tr>
-            <td style="background-color: #f8fafc; border-top: 1px solid #f1f5f9; padding: 24px 32px; text-align: center; color: #94a3b8; font-size: 12px; line-height: 1.5;">
+            <td class="email-footer" style="background-color: #f8fafc; border-top: 1px solid #f1f5f9; padding: 24px 30px; text-align: center; color: #94a3b8; font-size: 12px; line-height: 1.5;">
               <p style="margin: 0 0 8px 0;">You received this email because you downloaded "The First Step to Becoming" guidebook.</p>
               <p style="margin: 0;">© 2026 BECOMING. All rights reserved. 123 Progress Lane, Clarity Suite, CA.</p>
             </td>
