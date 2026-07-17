@@ -614,7 +614,7 @@ export default function App() {
 
                     <div className="px-2">
                       <a
-                        href="/ebook.pdf"
+                        href="/api/asset/ebook"
                         download="The-First-Step-to-Becoming.pdf"
                         className="w-full flex items-center justify-center space-x-2 py-3.5 px-4 bg-[#2563eb] hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-0.5 cursor-pointer text-center"
                       >
@@ -1133,7 +1133,7 @@ export default function App() {
 
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto w-full">
                         <a
-                          href="/ebook.pdf"
+                          href="/api/asset/ebook"
                           download="The-First-Step-to-Becoming.pdf"
                           className="flex-1 w-full inline-flex items-center justify-center space-x-2 py-2.5 px-4 bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors text-center"
                         >

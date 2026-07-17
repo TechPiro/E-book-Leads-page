@@ -1,11 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /leads/{leadId} {
-      allow read, write: if true;
-    }
-    match /settings/{settingsId} {
-      allow read, write: if true;
+
+    // SECURE DEFAULT: deny ALL direct client access.
+    //
+    // The server reaches Firestore through the Firebase Admin SDK (using the
+    // FIREBASE_SERVICE_ACCOUNT credential), which bypasses these rules entirely.
+    // That keeps captured leads (names, emails, phone numbers) private — nobody
+    // can read or write them straight from the browser using the public config.
+    //
+    // ⚠️ ONLY deploy these locked rules if FIREBASE_SERVICE_ACCOUNT is configured.
+    // If you are still on the client-SDK fallback (no service account), the server
+    // itself is subject to these rules, so you must instead allow access, e.g.:
+    //   match /leads/{id}    { allow read, write: if true; }
+    //   match /settings/{id} { allow read, write: if true; }
+    // (less secure — anyone can read your leads).
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -37,7 +37,7 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
   // Profile management state
   const [authorName, setAuthorName] = useState("");
   const [profilePicBase64, setProfilePicBase64] = useState<string | null>(null);
-  const [profilePicPreview, setProfilePicPreview] = useState<string>("/profile_picture.jpg");
+  const [profilePicPreview, setProfilePicPreview] = useState<string>("/api/asset/profile");
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
@@ -158,7 +158,7 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
       if (res.ok && data.success) {
         setAuthorName(data.authorName);
         setCacheBuster(Date.now());
-        setProfilePicPreview(`/profile_picture.jpg?cb=${Date.now()}`);
+        setProfilePicPreview(`/api/asset/profile?cb=${Date.now()}`);
       } else {
         setProfileErrorMessage(data.error || "Failed to load profile settings.");
       }
@@ -1142,7 +1142,7 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
                       </div>
                       
                       <a
-                        href="/ebook.pdf"
+                        href="/api/asset/ebook"
                         download="The-First-Step-to-Becoming.pdf"
                         className="inline-flex items-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs shadow-sm transition-colors cursor-pointer"
                         title="Download active ebook to preview"

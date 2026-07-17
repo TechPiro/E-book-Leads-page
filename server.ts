@@ -2,7 +2,9 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
+import crypto from "crypto";
+import { cert, initializeApp as initAdminApp, getApps as getAdminApps } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 import { initializeApp as initFirebaseClient } from "firebase/app";
 import { 
   getFirestore as getClientFirestore, 
@@ -129,7 +131,7 @@ class ClientDocWrapper {
 }
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
-import { COPY_CONFIG } from "./src/copyConfig.js";
+import { COPY_CONFIG } from "./src/copyConfig";
 
 // Load environment variables
 dotenv.config();
@@ -138,7 +140,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Set up JSON body parser with increased limit for profile photo upload
 app.use(express.json({ limit: "10mb" }));
@@ -146,8 +148,47 @@ app.use(express.json({ limit: "10mb" }));
 // Serve public directory files as static assets (ebook.pdf, book_cover.jpg, etc.)
 app.use(express.static(path.join(process.cwd(), "public")));
 
-// In-memory sessions for lightweight admin auth
-const activeSessions = new Set<string>();
+// On Vercel (and most serverless platforms) the filesystem is read-only except /tmp,
+// and any writes are ephemeral. Firestore is the source of truth there, so guard all
+// disk writes behind this flag to avoid crashes.
+const CAN_WRITE_DISK = !process.env.VERCEL;
+
+function safeWriteFileSync(filePath: string, data: string | Buffer) {
+  if (!CAN_WRITE_DISK) return;
+  try {
+    fs.writeFileSync(filePath, data);
+  } catch (err: any) {
+    console.warn(`[Disk Warning] Skipped writing ${filePath}:`, err?.message || err);
+  }
+}
+
+// Stateless admin auth via signed HMAC tokens (survives serverless cold starts /
+// multiple lambda instances, unlike an in-memory session Set).
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "insecure-default-change-me";
+
+function signAdminToken(ttlMs = 24 * 60 * 60 * 1000) {
+  const exp = Date.now() + ttlMs;
+  const payload = `admin.${exp}`;
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("hex");
+  return Buffer.from(`${payload}.${sig}`).toString("base64url");
+}
+
+function verifyAdminToken(token: string): boolean {
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf-8");
+    const parts = decoded.split(".");
+    if (parts.length !== 3) return false;
+    const [role, exp, sig] = parts;
+    const expected = crypto.createHmac("sha256", SESSION_SECRET).update(`${role}.${exp}`).digest("hex");
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return false;
+    if (Date.now() > Number(exp)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Dynamic Firebase loading
 let db: any = null;
@@ -173,7 +214,7 @@ async function getProfileSettings(): Promise<ProfileSettings> {
         const data = docSnap.data();
         if (data && data.authorName) {
           if (!fs.existsSync(SETTINGS_FILE_PATH)) {
-            fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify({ authorName: data.authorName }, null, 2));
+            safeWriteFileSync(SETTINGS_FILE_PATH, JSON.stringify({ authorName: data.authorName }, null, 2));
           }
           return { authorName: data.authorName };
         }
@@ -204,7 +245,7 @@ async function getProfileSettings(): Promise<ProfileSettings> {
     }
   } else {
     try {
-      fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(defaultSettings, null, 2));
+      safeWriteFileSync(SETTINGS_FILE_PATH, JSON.stringify(defaultSettings, null, 2));
     } catch (e) {
       console.error("Error writing default profile_settings.json:", e);
     }
@@ -224,7 +265,7 @@ async function syncProfilePictureFromFirestore() {
         const picPath = path.join(process.cwd(), "public", "profile_picture.jpg");
         const base64Data = data.profilePictureBase64.replace(/^data:image\/\w+;base64,/, "");
         const buffer = Buffer.from(base64Data, "base64");
-        fs.writeFileSync(picPath, buffer);
+        safeWriteFileSync(picPath, buffer);
         console.log("Successfully restored custom profile picture from Firestore to local public/profile_picture.jpg");
       }
     }
@@ -244,7 +285,7 @@ async function syncEbookFromFirestore() {
         const ebookPath = path.join(process.cwd(), "public", "ebook.pdf");
         const base64Data = data.ebookBase64.replace(/^data:application\/pdf;base64,/, "");
         const buffer = Buffer.from(base64Data, "base64");
-        fs.writeFileSync(ebookPath, buffer);
+        safeWriteFileSync(ebookPath, buffer);
         console.log("Successfully restored custom ebook PDF from Firestore to local public/ebook.pdf");
       }
     }
@@ -255,10 +296,29 @@ async function syncEbookFromFirestore() {
 
 try {
   const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-  if (fs.existsSync(configPath)) {
-    const raw = fs.readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(raw);
-    
+  const parsed: any = fs.existsSync(configPath)
+    ? JSON.parse(fs.readFileSync(configPath, "utf-8"))
+    : null;
+  const databaseId = process.env.FIRESTORE_DATABASE_ID || parsed?.firestoreDatabaseId || "(default)";
+  const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+  if (serviceAccountRaw) {
+    // Preferred: Firebase Admin SDK. It bypasses Firestore security rules, so the
+    // rules can (and should) deny all direct client access — the only way in is
+    // through this trusted server. Required for a secure production deployment.
+    const serviceAccount = JSON.parse(serviceAccountRaw);
+    const adminApp = getAdminApps().length
+      ? getAdminApps()[0]
+      : initAdminApp({
+          credential: cert(serviceAccount),
+          projectId: serviceAccount.project_id || parsed?.projectId,
+        });
+    db = getAdminFirestore(adminApp, databaseId);
+    console.log("Firebase Admin SDK initialized. Project:", serviceAccount.project_id, "DB:", databaseId);
+  } else if (parsed) {
+    // Fallback: client SDK wrapper. Works with only the public config file, but is
+    // subject to Firestore security rules — those rules must stay permissive, which
+    // exposes lead data. Set FIREBASE_SERVICE_ACCOUNT to switch to the secure path.
     const firebaseClientApp = initFirebaseClient({
       apiKey: parsed.apiKey,
       authDomain: parsed.authDomain,
@@ -267,17 +327,17 @@ try {
       messagingSenderId: parsed.messagingSenderId,
       appId: parsed.appId
     });
-    
-    const clientFirestoreDb = getClientFirestore(firebaseClientApp, parsed.firestoreDatabaseId || "(default)");
+    const clientFirestoreDb = getClientFirestore(firebaseClientApp, databaseId);
     db = new ClientFirestoreWrapper(clientFirestoreDb);
-    console.log("Firebase client-side SDK initialized successfully on server. Project ID:", parsed.projectId, "DB ID:", parsed.firestoreDatabaseId);
-    
-    // Sync profile settings and picture on startup
-    syncProfilePictureFromFirestore().catch(err => console.warn("Failed to sync profile picture on startup:", err));
-    // Sync ebook PDF on startup
-    syncEbookFromFirestore().catch(err => console.warn("Failed to sync ebook PDF on startup:", err));
+    console.warn("Firebase running via CLIENT SDK fallback (no FIREBASE_SERVICE_ACCOUNT). Firestore rules must remain permissive. Set FIREBASE_SERVICE_ACCOUNT for secure production use.");
   } else {
-    console.warn("firebase-applet-config.json not found! Server is running in mock DB fallback mode.");
+    console.warn("No Firebase configuration found. Running in memory-only fallback mode (leads will NOT persist).");
+  }
+
+  // Restoring assets to disk only makes sense on a writable, persistent filesystem.
+  if (db && CAN_WRITE_DISK) {
+    syncProfilePictureFromFirestore().catch(err => console.warn("Failed to sync profile picture on startup:", err));
+    syncEbookFromFirestore().catch(err => console.warn("Failed to sync ebook PDF on startup:", err));
   }
 } catch (err) {
   console.error("Critical error initializing Firebase on server:", err);
@@ -326,7 +386,7 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
     return res.status(401).json({ success: false, error: "Unauthorized access. No token provided." });
   }
   const token = authHeader.split(" ")[1];
-  if (!activeSessions.has(token)) {
+  if (!verifyAdminToken(token)) {
     return res.status(401).json({ success: false, error: "Session expired or invalid. Please log in again." });
   }
   next();
@@ -360,21 +420,20 @@ app.post("/api/leads", async (req, res) => {
     const currentAuthorName = profileSettings.authorName;
     const authorFirstName = currentAuthorName.split(" ")[0];
 
-    const emailSent = false;
     let emailSentError: string | undefined = undefined;
 
-    // Determine Ebook delivery link & assets URL dynamically using request info to ensure correctness
+    // Determine Ebook delivery link dynamically using request info to ensure correctness
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.get("host");
     const dynamicBaseUrl = `${protocol}://${host}`;
-    
+
     // Fallback to dynamic base URL if APP_URL is missing or placeholder
-    const finalBaseUrl = (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL") 
-      ? process.env.APP_URL 
+    const finalBaseUrl = (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL")
+      ? process.env.APP_URL
       : dynamicBaseUrl;
 
-    const ebookDownloadUrl = `${finalBaseUrl}/ebook.pdf`;
-    const bookCoverUrl = `${finalBaseUrl}/book_cover.jpg`;
+    // Point at the dynamic asset route so the emailed link always serves the latest ebook.
+    const ebookDownloadUrl = `${finalBaseUrl}/api/asset/ebook`;
 
     // Set up Nodemailer transporter for Gmail SMTP
     let emailSentStatus = false;
@@ -385,6 +444,14 @@ app.post("/api/leads", async (req, res) => {
 
     if (smtpUser && smtpPass) {
       try {
+        // Load email assets as buffers (Firestore-first, bundled fallback) so this
+        // works on read-only serverless filesystems.
+        const [ebookBuffer, profilePictureBuffer] = await Promise.all([
+          getEbookBuffer(),
+          getProfilePictureBuffer(),
+        ]);
+        const bookCoverBuffer = getBookCoverBuffer();
+
         const transporter = nodemailer.createTransport({
           host: smtpHost,
           port: smtpPort,
@@ -549,21 +616,9 @@ app.post("/api/leads", async (req, res) => {
           subject: `Your Free Ebook Is Here 🎉 - ${COPY_CONFIG.ebookTitle}`,
           html: emailHtml,
           attachments: [
-            {
-              filename: "book_cover.jpg",
-              path: path.join(process.cwd(), "public", "book_cover.jpg"),
-              cid: "book_cover"
-            },
-            {
-              filename: "profile_picture.jpg",
-              path: path.join(process.cwd(), "public", "profile_picture.jpg"),
-              cid: "author_profile"
-            },
-            {
-              filename: "The-First-Step-to-Becoming.pdf",
-              path: path.join(process.cwd(), "public", "ebook.pdf"),
-              contentType: "application/pdf"
-            }
+            ...(bookCoverBuffer ? [{ filename: "book_cover.jpg", content: bookCoverBuffer, cid: "book_cover" }] : []),
+            ...(profilePictureBuffer ? [{ filename: "profile_picture.jpg", content: profilePictureBuffer, cid: "author_profile" }] : []),
+            ...(ebookBuffer ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }] : []),
           ]
         });
 
@@ -692,9 +747,7 @@ app.post("/api/admin/login", (req, res) => {
     const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
 
     if (password === adminPassword) {
-      // Simple random secure token
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-      activeSessions.add(token);
+      const token = signAdminToken();
       return res.json({ success: true, token });
     } else {
       return res.status(401).json({ success: false, error: "Incorrect password. Please try again." });
@@ -706,12 +759,8 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 // 3. ADMIN Logout Endpoint
-app.post("/api/admin/logout", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    activeSessions.delete(token);
-  }
+app.post("/api/admin/logout", (_req, res) => {
+  // Tokens are stateless and short-lived; the client simply discards it on logout.
   return res.json({ success: true });
 });
 
@@ -794,7 +843,7 @@ app.post("/api/admin/profile", requireAdmin, async (req, res) => {
       const base64Data = profilePictureBase64.replace(/^data:image\/\w+;base64,/, "");
       const buffer = Buffer.from(base64Data, "base64");
       const picPath = path.join(process.cwd(), "public", "profile_picture.jpg");
-      fs.writeFileSync(picPath, buffer);
+      safeWriteFileSync(picPath, buffer);
       console.log("Updated local profile_picture.jpg");
     }
 
@@ -860,44 +909,128 @@ app.post("/api/admin/ebook", requireAdmin, async (req, res) => {
 });
 
 // 8. ADMIN Get Ebook Info Endpoint (Authorized)
-app.get("/api/admin/ebook-info", requireAdmin, async (req, res) => {
+app.get("/api/admin/ebook-info", requireAdmin, async (_req, res) => {
   try {
-    const ebookPath = path.join(process.cwd(), "public", "ebook.pdf");
-    const exists = fs.existsSync(ebookPath);
-    if (!exists) {
+    let size: number | undefined;
+    let mtime: number | undefined;
+
+    if (db) {
+      try {
+        const snap = await db.collection("settings").doc("ebook").get();
+        const data = snap.exists ? snap.data() : null;
+        if (data?.ebookBase64) {
+          const base64 = data.ebookBase64.replace(/^data:application\/pdf;base64,/, "");
+          size = Buffer.from(base64, "base64").length;
+          mtime = data.updatedAt;
+        }
+      } catch (dbErr) {
+        logDbError("Failed to read ebook info from Firestore", dbErr);
+      }
+    }
+
+    // Fall back to the bundled file shipped with the deployment.
+    if (size === undefined) {
+      const ebookPath = path.join(process.cwd(), "public", "ebook.pdf");
+      if (fs.existsSync(ebookPath)) {
+        const stats = fs.statSync(ebookPath);
+        size = stats.size;
+        mtime = stats.mtime.getTime();
+      }
+    }
+
+    if (size === undefined) {
       return res.json({ success: true, exists: false });
     }
-    const stats = fs.statSync(ebookPath);
-    return res.json({
-      success: true,
-      exists: true,
-      size: stats.size, // in bytes
-      mtime: stats.mtime // last modified Date object/string
-    });
+    return res.json({ success: true, exists: true, size, mtime });
   } catch (err: any) {
     console.error("Error getting ebook info:", err);
     return res.status(500).json({ success: false, error: err.message || String(err) });
   }
 });
 
-// Serve frontend assets in production, and run Vite dev server in development
-if (process.env.NODE_ENV !== "production") {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: "spa",
-  });
-  app.use(vite.middlewares);
-} else {
-  const distPath = path.join(process.cwd(), "dist");
-  app.use(express.static(distPath));
-  
-  // Single-page-app routing fallback (Note: Express 4 format used)
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+/* ==========================================
+   DYNAMIC ASSET SERVING
+   Firestore-first with a bundled fallback, so admin-uploaded assets are served
+   without relying on a writable filesystem.
+   ========================================== */
+
+async function getEbookBuffer(): Promise<Buffer | null> {
+  if (db) {
+    try {
+      const snap = await db.collection("settings").doc("ebook").get();
+      const data = snap.exists ? snap.data() : null;
+      if (data?.ebookBase64) {
+        return Buffer.from(data.ebookBase64.replace(/^data:application\/pdf;base64,/, ""), "base64");
+      }
+    } catch (err) {
+      logDbError("Failed to load ebook from Firestore", err);
+    }
+  }
+  const bundled = path.join(process.cwd(), "public", "ebook.pdf");
+  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
+}
+
+async function getProfilePictureBuffer(): Promise<Buffer | null> {
+  if (db) {
+    try {
+      const snap = await db.collection("settings").doc("profile").get();
+      const data = snap.exists ? snap.data() : null;
+      if (data?.profilePictureBase64) {
+        return Buffer.from(data.profilePictureBase64.replace(/^data:image\/\w+;base64,/, ""), "base64");
+      }
+    } catch (err) {
+      logDbError("Failed to load profile picture from Firestore", err);
+    }
+  }
+  const bundled = path.join(process.cwd(), "public", "profile_picture.jpg");
+  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
+}
+
+function getBookCoverBuffer(): Buffer | null {
+  const bundled = path.join(process.cwd(), "public", "book_cover.jpg");
+  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
+}
+
+app.get("/api/asset/ebook", async (_req, res) => {
+  const buffer = await getEbookBuffer();
+  if (!buffer) return res.status(404).send("Ebook not found");
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", 'attachment; filename="The-First-Step-to-Becoming.pdf"');
+  res.setHeader("Cache-Control", "public, max-age=300");
+  return res.send(buffer);
+});
+
+app.get("/api/asset/profile", async (_req, res) => {
+  const buffer = await getProfilePictureBuffer();
+  if (!buffer) return res.status(404).send("Profile picture not found");
+  res.setHeader("Content-Type", "image/jpeg");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  return res.send(buffer);
+});
+
+// Local development / traditional Node hosting only. On Vercel the platform serves the
+// built SPA + /public statically, and this module is imported purely as the /api
+// serverless function (see api/[...path].ts), so none of this runs there.
+if (!process.env.VERCEL) {
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    // Single-page-app routing fallback (Express 4 format).
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-// Bind to 0.0.0.0 and PORT 3000
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+export default app;
