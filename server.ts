@@ -300,7 +300,11 @@ try {
     ? JSON.parse(fs.readFileSync(configPath, "utf-8"))
     : null;
   const databaseId = process.env.FIRESTORE_DATABASE_ID || parsed?.firestoreDatabaseId || "(default)";
-  const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  // Accept the service account as raw JSON, or as base64 (avoids multi-line paste
+  // issues in some dashboards). Base64 takes precedence when both are set.
+  const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+    ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf-8")
+    : process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (serviceAccountRaw) {
     // Preferred: Firebase Admin SDK. It bypasses Firestore security rules, so the
