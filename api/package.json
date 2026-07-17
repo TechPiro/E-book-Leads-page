@@ -1,0 +1,4 @@
+{
+  "comment": "Forces Vercel to build the serverless function in this folder as CommonJS. The root package.json is type:module (needed for Vite), but bundling the Express/firebase-admin CommonJS deps into an ESM function breaks with 'Dynamic require ... is not supported'. CJS output uses native require and works.",
+  "type": "commonjs"
+}
