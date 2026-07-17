@@ -1,0 +1,6 @@
+{
+  "name": "Ebook Lead Capture Landing Page",
+  "description": "A high-converting direct-response lead capture landing page with an automatic ebook delivery system and a secure, searchable admin dashboard to view and export captured leads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

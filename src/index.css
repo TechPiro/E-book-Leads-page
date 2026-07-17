@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  /* Brand color palette - configured using direct HEX values */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-accent: #f59e0b;
+  --color-accent-dark: #d97706;
+  --color-success: #10b981;
+  --color-dark: #0f172a;
+  --color-dark-light: #1e293b;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-bg-light: #f8fafc;
+}
+
+/* Custom smooth-scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
