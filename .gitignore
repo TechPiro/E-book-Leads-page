@@ -10,3 +10,5 @@ coverage/
 # Local secrets — never commit
 service-account.json
 vercel-import.env
+
+leads_backup.json

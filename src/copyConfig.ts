@@ -1,4 +1,4 @@
-import { EditableCopy } from "./types";
+import { EditableCopy } from "./types.js";
 
 // EASILY EDITABLE COPY CONFIGURATION
 // Swap in your own title, target audience, and marketing copy below:

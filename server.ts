@@ -130,7 +130,7 @@ class ClientDocWrapper {
 }
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
-import { COPY_CONFIG } from "./src/copyConfig";
+import { COPY_CONFIG } from "./src/copyConfig.js";
 
 // Load environment variables
 dotenv.config();

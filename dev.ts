@@ -5,7 +5,7 @@
 // of the serverless function, where calling listen() would crash the invocation.
 import path from "path";
 import express from "express";
-import app from "./server";
+import app from "./server.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 
