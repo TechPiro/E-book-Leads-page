@@ -457,10 +457,6 @@ app.post("/api/leads", async (req, res) => {
 
     // Point at the dynamic asset route so the emailed link always serves the latest ebook.
     const ebookDownloadUrl = `${finalBaseUrl}/api/asset/ebook`;
-    // Images are referenced by URL (not attached) so they render inline in the body
-    // without appearing as downloadable attachments in the inbox.
-    const profilePhotoUrl = `${finalBaseUrl}/api/asset/profile`;
-    const bookCoverUrl = `${finalBaseUrl}/book_cover.jpg`;
 
     // Set up Nodemailer transporter for Gmail SMTP
     let emailSentStatus = false;
@@ -471,10 +467,14 @@ app.post("/api/leads", async (req, res) => {
 
     if (smtpUser && smtpPass) {
       try {
-        // Only the e-book PDF is attached. The profile photo and book cover are
-        // intentionally NOT embedded/attached — they showed up as attachments in the
-        // inbox and looked unprofessional.
-        const ebookBuffer = await getEbookBuffer();
+        // Embed the photo and cover via CID so they always render inline — even in
+        // spam, where clients block remote images. Trade-off: they appear as inline
+        // attachments until we move to an authenticated sending domain.
+        const [ebookBuffer, profilePictureBuffer] = await Promise.all([
+          getEbookBuffer(),
+          getProfilePictureBuffer(),
+        ]);
+        const bookCoverBuffer = getBookCoverBuffer();
 
         const transporter = nodemailer.createTransport({
           host: smtpHost,
@@ -537,7 +537,7 @@ app.post("/api/leads", async (req, res) => {
               <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; text-align: left;">
                 <tr>
                   <td style="vertical-align: middle; width: 52px; padding-right: 12px;">
-                    <img src="${profilePhotoUrl}" alt="${currentAuthorName}" width="52" height="52" style="border-radius: 50%; display: block; object-fit: cover; border: 2px solid #e2e8f0;" />
+                    <img src="cid:author_profile" alt="${currentAuthorName}" width="52" height="52" style="border-radius: 50%; display: block; object-fit: cover; border: 2px solid #e2e8f0;" />
                   </td>
                   <td style="vertical-align: middle;">
                     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; font-weight: 700; margin-bottom: 2px;">AUTHOR &amp; GUIDE</div>
@@ -572,7 +572,7 @@ app.post("/api/leads", async (req, res) => {
                       <tr>
                         <td align="center">
                           <a href="${ebookDownloadUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                            <img src="${bookCoverUrl}" alt="The First Step to Becoming Book Cover" width="200" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: block;" />
+                            <img src="cid:book_cover" alt="The First Step to Becoming Book Cover" width="200" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 12px 28px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: block;" />
                           </a>
                         </td>
                       </tr>
@@ -649,9 +649,11 @@ app.post("/api/leads", async (req, res) => {
           to: email.trim(),
           subject: `Your Free Ebook Is Here 🎉 - ${COPY_CONFIG.ebookTitle}`,
           html: emailHtml,
-          attachments: ebookBuffer
-            ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }]
-            : []
+          attachments: [
+            ...(bookCoverBuffer ? [{ filename: "book_cover.jpg", content: bookCoverBuffer, cid: "book_cover", contentDisposition: "inline" as const }] : []),
+            ...(profilePictureBuffer ? [{ filename: "profile_picture.jpg", content: profilePictureBuffer, cid: "author_profile", contentDisposition: "inline" as const }] : []),
+            ...(ebookBuffer ? [{ filename: "The-First-Step-to-Becoming.pdf", content: ebookBuffer, contentType: "application/pdf" }] : []),
+          ]
         });
 
         emailSentStatus = true;
@@ -1015,6 +1017,11 @@ async function getProfilePictureBuffer(): Promise<Buffer | null> {
     }
   }
   const bundled = path.join(process.cwd(), "public", "profile_picture.jpg");
+  return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
+}
+
+function getBookCoverBuffer(): Buffer | null {
+  const bundled = path.join(process.cwd(), "public", "book_cover.jpg");
   return fs.existsSync(bundled) ? fs.readFileSync(bundled) : null;
 }
 
