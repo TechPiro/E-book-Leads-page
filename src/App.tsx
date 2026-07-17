@@ -613,13 +613,10 @@ export default function App() {
                     </div>
 
                     <div className="px-2">
-                      <a
-                        href="/api/asset/ebook"
-                        download="The-First-Step-to-Becoming.pdf"
-                        className="w-full flex items-center justify-center space-x-2 py-3.5 px-4 bg-[#2563eb] hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-0.5 cursor-pointer text-center"
-                      >
-                        <span>📥 Download E-Book Instantly</span>
-                      </a>
+                      <div className="w-full flex items-center justify-center space-x-2 py-3.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-bold text-center">
+                        <Mail className="h-4 w-4 shrink-0" />
+                        <span>Check your email to download the e-book</span>
+                      </div>
                     </div>
 
                     <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 text-xs text-[#64748b] text-left space-y-2">
@@ -1131,19 +1128,16 @@ export default function App() {
                         </p>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto w-full">
-                        <a
-                          href="/api/asset/ebook"
-                          download="The-First-Step-to-Becoming.pdf"
-                          className="flex-1 w-full inline-flex items-center justify-center space-x-2 py-2.5 px-4 bg-[#2563eb] hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors text-center"
-                        >
-                          <span>📥 Download E-Book</span>
-                        </a>
+                      <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto w-full">
+                        <div className="w-full inline-flex items-center justify-center space-x-2 py-2.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold rounded-xl text-xs text-center">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span>Check your email to download the e-book</span>
+                        </div>
                         <button
                           onClick={() => setShowExitIntent(false)}
-                          className="flex-1 w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer animate-none"
+                          className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
                         >
-                          Start Reading
+                          Close
                         </button>
                       </div>
                     </motion.div>
