@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local secrets — never commit
+service-account.json
+vercel-import.env
